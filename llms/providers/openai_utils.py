@@ -14,6 +14,46 @@ import openai.error
 from tqdm.asyncio import tqdm_asyncio
 
 
+def setup_openai_api() -> None:
+    """Configure OpenAI API for either Azure or standard OpenAI."""
+    api_type = os.environ.get("OPENAI_API_TYPE", "openai").lower()
+
+    if api_type == "azure":
+        # Azure OpenAI configuration
+        if "AZURE_OPENAI_API_KEY" not in os.environ:
+            raise ValueError(
+                "AZURE_OPENAI_API_KEY environment variable must be set when using Azure OpenAI."
+            )
+        if "AZURE_OPENAI_ENDPOINT" not in os.environ:
+            raise ValueError(
+                "AZURE_OPENAI_ENDPOINT environment variable must be set when using Azure OpenAI."
+            )
+
+        openai.api_type = "azure"
+        openai.api_key = os.environ["AZURE_OPENAI_API_KEY"]
+        openai.api_base = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/")
+        openai.api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+
+        logging.info(f"Using Azure OpenAI at {openai.api_base}")
+    else:
+        # Standard OpenAI configuration
+        if "OPENAI_API_KEY" not in os.environ:
+            raise ValueError(
+                "OPENAI_API_KEY environment variable must be set when using OpenAI API."
+            )
+        openai.api_key = os.environ["OPENAI_API_KEY"]
+        openai.organization = os.environ.get("OPENAI_ORGANIZATION", "")
+
+
+def get_engine_or_deployment(model: str) -> str:
+    """Get the engine/deployment name based on API type."""
+    api_type = os.environ.get("OPENAI_API_TYPE", "openai").lower()
+    if api_type == "azure":
+        # For Azure, use the deployment name from env or the model name
+        return os.environ.get("AZURE_OPENAI_DEPLOYMENT", model)
+    return model
+
+
 def retry_with_exponential_backoff(  # type: ignore
     func,
     initial_delay: float = 1,
@@ -108,12 +148,8 @@ async def agenerate_from_openai_completion(
     Returns:
         List of generated responses.
     """
-    if "OPENAI_API_KEY" not in os.environ:
-        raise ValueError(
-            "OPENAI_API_KEY environment variable must be set when using OpenAI API."
-        )
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-    openai.organization = os.environ.get("OPENAI_ORGANIZATION", "")
+    setup_openai_api()
+    engine = get_engine_or_deployment(engine)
 
     limiter = aiolimiter.AsyncLimiter(requests_per_minute)
     async_responses = [
@@ -141,12 +177,8 @@ def generate_from_openai_completion(
     context_length: int,
     stop_token: str | None = None,
 ) -> str:
-    if "OPENAI_API_KEY" not in os.environ:
-        raise ValueError(
-            "OPENAI_API_KEY environment variable must be set when using OpenAI API."
-        )
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-    openai.organization = os.environ.get("OPENAI_ORGANIZATION", "")
+    setup_openai_api()
+    engine = get_engine_or_deployment(engine)
     response = openai.Completion.create(  # type: ignore
         prompt=prompt,
         engine=engine,
@@ -213,12 +245,8 @@ async def agenerate_from_openai_chat_completion(
     Returns:
         List of generated responses.
     """
-    if "OPENAI_API_KEY" not in os.environ:
-        raise ValueError(
-            "OPENAI_API_KEY environment variable must be set when using OpenAI API."
-        )
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-    openai.organization = os.environ.get("OPENAI_ORGANIZATION", "")
+    setup_openai_api()
+    engine = get_engine_or_deployment(engine)
 
     limiter = aiolimiter.AsyncLimiter(requests_per_minute)
     async_responses = [
@@ -246,21 +274,29 @@ def generate_from_openai_chat_completion(
     context_length: int,
     stop_token: str | None = None,
 ) -> str:
-    if "OPENAI_API_KEY" not in os.environ:
-        raise ValueError(
-            "OPENAI_API_KEY environment variable must be set when using OpenAI API."
-        )
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-    openai.organization = os.environ.get("OPENAI_ORGANIZATION", "")
+    setup_openai_api()
+    model = get_engine_or_deployment(model)
 
-    response = openai.ChatCompletion.create(  # type: ignore
-        model=model,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        top_p=top_p,
-        stop=[stop_token] if stop_token else None,
-    )
+    # For Azure, use 'engine' parameter instead of 'model'
+    api_type = os.environ.get("OPENAI_API_TYPE", "openai").lower()
+    if api_type == "azure":
+        response = openai.ChatCompletion.create(  # type: ignore
+            engine=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            stop=[stop_token] if stop_token else None,
+        )
+    else:
+        response = openai.ChatCompletion.create(  # type: ignore
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            stop=[stop_token] if stop_token else None,
+        )
     answer: str = response["choices"][0]["message"]["content"]
     return answer
 
@@ -276,11 +312,6 @@ def fake_generate_from_openai_chat_completion(
     context_length: int,
     stop_token: str | None = None,
 ) -> str:
-    if "OPENAI_API_KEY" not in os.environ:
-        raise ValueError(
-            "OPENAI_API_KEY environment variable must be set when using OpenAI API."
-        )
-    openai.api_key = os.environ["OPENAI_API_KEY"]
-    openai.organization = os.environ.get("OPENAI_ORGANIZATION", "")
+    setup_openai_api()
     answer = "Let's think step-by-step. This page shows a list of links and buttons. There is a search box with the label 'Search query'. I will click on the search box to type the query. So the action I will perform is \"click [60]\"."
     return answer

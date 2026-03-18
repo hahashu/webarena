@@ -1,0 +1,51 @@
+services:
+  # WebArena Benchmark Agent
+  webarena:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webarena-agent
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Test URLs
+      - SHOPPING=http://mock-server:80
+      - SHOPPING_ADMIN=http://mock-server:80/admin
+      - REDDIT=http://mock-server:80
+      - GITLAB=http://mock-server:80
+      - MAP=http://mock-server:80
+      - WIKIPEDIA=http://mock-server:80
+      - HOMEPAGE=PASS
+      # Azure OpenAI
+      - OPENAI_API_TYPE=${OPENAI_API_TYPE:-}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-}
+      - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-}
+      # Standard OpenAI (alternative)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - ./config_files:/app/config_files
+      - ./cache:/app/cache
+      - ./.auth:/app/.auth
+      - ./log_files:/app/log_files
+    depends_on:
+      - mock-server
+    networks:
+      - webarena-net
+    stdin_open: true
+    tty: true
+
+  # Simple mock server for testing
+  mock-server:
+    image: nginx:alpine
+    container_name: mock-server
+    ports:
+      - "8080:80"
+    networks:
+      - webarena-net
+
+networks:
+  webarena-net:
+    driver: bridge

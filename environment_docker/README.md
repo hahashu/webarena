@@ -2,6 +2,7 @@
 This REAME file host the instructions for our Docker images and quick start guide for starting up websites used in WebArena.
 
 # Table of Content
+- [Docker Agent Setup (Run WebArena in Docker)](#docker-agent-setup-run-webarena-in-docker)
 - [Pre-installed Amazon Machine Image (Recommended)](#pre-installed-amazon-machine-image-recommended)
    * [Environment reset](#environment-reset)
 - [Individual Website](#individual-website)
@@ -13,6 +14,73 @@ This REAME file host the instructions for our Docker images and quick start guid
    * [Homepage](#homepage)
    * [Map](#map)
    * [Documentation sites](#documentation-sites)
+
+## Docker Agent Setup (Run WebArena in Docker)
+
+Run the WebArena agent in a Docker container with Azure OpenAI support.
+
+### Quick Start
+
+```bash
+# 1. Setup Docker environment
+./environment_docker/scripts/setup.sh
+
+# 2. Configure Azure credentials
+./environment_docker/scripts/configure_azure.sh
+
+# 3. Run benchmark
+./environment_docker/scripts/run_benchmark.sh
+```
+
+### Scripts
+
+| Script | Description |
+|--------|-------------|
+| `scripts/setup.sh` | Build Docker image and verify installation |
+| `scripts/configure_azure.sh` | Interactive Azure AI Foundry configuration |
+| `scripts/run_benchmark.sh` | Run the WebArena benchmark |
+| `scripts/download_websites.sh` | Download full WebArena website images |
+| `scripts/stop.sh` | Stop all Docker services |
+
+### Script Usage
+
+```bash
+# Test setup (default, no website downloads needed)
+./environment_docker/scripts/setup.sh
+
+# Full setup (requires website images)
+./environment_docker/scripts/setup.sh --full
+
+# Run benchmark
+./environment_docker/scripts/run_benchmark.sh              # Run test 0-1
+./environment_docker/scripts/run_benchmark.sh 0 10         # Run tests 0-9
+./environment_docker/scripts/run_benchmark.sh 0 100 gpt-4  # Run tests 0-99
+
+# Download website images
+./environment_docker/scripts/download_websites.sh forum      # Forum (~50GB)
+./environment_docker/scripts/download_websites.sh shopping   # Shopping (~50GB)
+./environment_docker/scripts/download_websites.sh gitlab     # GitLab (~25GB)
+./environment_docker/scripts/download_websites.sh all        # Everything
+```
+
+### Manual Docker Commands
+
+```bash
+# Interactive shell
+docker compose -f docker-compose.test.yml run --rm webarena bash
+
+# Generate test configs
+docker compose -f docker-compose.test.yml run --rm webarena python scripts/generate_test_data.py
+
+# Check Azure configuration
+docker compose -f docker-compose.test.yml run --rm webarena python -c "
+from llms.providers.openai_utils import setup_openai_api
+setup_openai_api()
+print('OK')
+"
+```
+
+---
 
 ## Pre-installed Amazon Machine Image (Recommended)
 We provide AMI which have all the websites pre-installed. You can use the AMI to start a new EC2 instance.

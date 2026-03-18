@@ -1,0 +1,96 @@
+services:
+  # WebArena Benchmark Agent
+  webarena:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webarena-agent
+    env_file:
+      - .env
+    environment:
+      # Website URLs (can be overridden in .env)
+      - SHOPPING=${SHOPPING:-http://shopping:80}
+      - SHOPPING_ADMIN=${SHOPPING_ADMIN:-http://shopping_admin:80/admin}
+      - REDDIT=${REDDIT:-http://forum:80}
+      - GITLAB=${GITLAB:-http://gitlab:8023}
+      - MAP=${MAP:-http://map:3000}
+      - WIKIPEDIA=${WIKIPEDIA:-http://wikipedia:80/wikipedia_en_all_maxi_2022-05/A/User:The_other_Kiwix_guy/Landing}
+      - HOMEPAGE=${HOMEPAGE:-PASS}
+      # Azure OpenAI
+      - OPENAI_API_TYPE=${OPENAI_API_TYPE:-}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-}
+      - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-}
+      # Standard OpenAI (alternative)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_ORGANIZATION=${OPENAI_ORGANIZATION:-}
+    volumes:
+      - ./config_files:/app/config_files
+      - ./cache:/app/cache
+      - ./.auth:/app/.auth
+      - ./log_files:/app/log_files
+    depends_on:
+      - forum
+    networks:
+      - webarena-net
+    stdin_open: true
+    tty: true
+
+  # Social Forum (Reddit clone) - Port 9999
+  forum:
+    image: postmill-populated-exposed-withimg
+    container_name: forum
+    ports:
+      - "9999:80"
+    networks:
+      - webarena-net
+    restart: unless-stopped
+
+  # Shopping Website (Magento) - Port 7770
+  shopping:
+    image: shopping_final_0712
+    container_name: shopping
+    ports:
+      - "7770:80"
+    networks:
+      - webarena-net
+    restart: unless-stopped
+
+  # Shopping Admin (Magento Admin) - Port 7780
+  shopping_admin:
+    image: shopping_admin_final_0719
+    container_name: shopping_admin
+    ports:
+      - "7780:80"
+    networks:
+      - webarena-net
+    restart: unless-stopped
+
+  # GitLab - Port 8023
+  gitlab:
+    image: gitlab-populated-final-port8023
+    container_name: gitlab
+    ports:
+      - "8023:8023"
+    command: /opt/gitlab/embedded/bin/runsvdir-start
+    networks:
+      - webarena-net
+    restart: unless-stopped
+
+  # Wikipedia (Kiwix) - Port 8888
+  wikipedia:
+    image: ghcr.io/kiwix/kiwix-serve:3.3.0
+    container_name: kiwix33
+    ports:
+      - "8888:80"
+    volumes:
+      - ./data/wikipedia:/data
+    command: wikipedia_en_all_maxi_2022-05.zim
+    networks:
+      - webarena-net
+    restart: unless-stopped
+
+networks:
+  webarena-net:
+    driver: bridge
